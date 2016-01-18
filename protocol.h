@@ -27,3 +27,4 @@ int parse_command(FILE *);
 struct header_entry* parse_headers(FILE *);
 char *get_header_value(struct header_entry *, char *);
 void create_header(char *,const char *,struct header_entry *);
+void free_header(struct header_entry *);

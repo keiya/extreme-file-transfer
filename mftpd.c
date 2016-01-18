@@ -46,7 +46,7 @@ mftpd_listen( int portno, int ip_version )
 {
 	int acc,com;
 	pthread_t worker ;
-	struct mftpd_thread_arg *arg;
+	//struct mftpd_thread_arg *arg;
 	acc = tcp_acc_port( portno, ip_version );
 	if( acc < 0 ) {
 		perror("tcp_acc_port");
@@ -145,9 +145,11 @@ void mftpd_get_reply(const char *filename,FILE *out)
 		strncpy(item->value, bname, 512);
 		HASH_ADD_STR(headers, name, item);
 		create_header(header_buf,"s20",headers);
+		free_header(headers);
 	
 		printf("[GET][s20]%s\n",filename);
 		fwrite(header_buf,strlen(header_buf),1,out);
+		free(header_buf); /* malloc */
 		file_compressto(fp,out);
 		fclose(fp);
 	}
@@ -175,6 +177,9 @@ void mftpd_put_receive(const char *filename,FILE *in)
 	}
 
 	file_decompressto(in,fp);
+
+	/* return response to client? */
+
 	fclose(fp);
 }
 
@@ -193,17 +198,19 @@ mftpd_do_command(struct mftpd_thread_arg *conn_arg)
 
 	printf("cmd=%d\n",cmd);
 	struct header_entry *headers = parse_headers(conn_arg->in);
-	printf("headerend\n",cmd);
+	printf("headerend\n");
 
 	if (cmd == MFTP_CMD_GET)
 	{
 		char *filename = get_header_value(headers,"filename");
 		mftpd_get_reply(filename,conn_arg->out);
+		free(filename); /* get_header_value */
 	}
 	else if (cmd == MFTP_CMD_PUT)
 	{
 		char *filename = get_header_value(headers,"filename");
 		mftpd_put_receive(filename,conn_arg->in);
+		free(filename); /* get_header_value */
 	}
 	else if (cmd == MFTP_CMD_CD)
 	{

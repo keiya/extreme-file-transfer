@@ -37,6 +37,17 @@ int parse_command(FILE *in)
 	return command;
 }
 
+/*
+void discard_headers(FILE *in)
+{
+	while ( fgets(requestheader,MFTP_HEADER_BUFFERSIZE,in) != NULL )
+	{
+		if (strstr(requestheader,"\r\n") == requestheader)
+			break;
+	}
+}
+*/
+
 struct header_entry* parse_headers(FILE *in)
 {
 	struct header_entry *headers = NULL;
@@ -66,8 +77,12 @@ char *get_header_value(struct header_entry *header, char *header_name) {
     HASH_FIND_STR( header, header_name, tmp );
 	if (!tmp)
 		return NULL;
-    return tmp->value;
+	char *string = malloc(strlen(tmp->value)); // hashtable
+	strcpy(string,tmp->value);	
+	free(tmp);
+    return string;
 }
+
 void create_header(char *buf,const char *cmd,struct header_entry *headers)
 {
 	struct header_entry *s;
@@ -82,4 +97,15 @@ void create_header(char *buf,const char *cmd,struct header_entry *headers)
     }
 	snprintf(tmp,MFTP_HEADER_BUFFERSIZE,"\r\n");
 	strcat(buf,tmp);
+}
+
+void free_header(struct header_entry *he)
+{
+  struct header_entry *header, *tmp;
+
+  HASH_ITER(hh, he, header, tmp) {
+    HASH_DEL(he,header);  /* delete; users advances to next */
+printf("FREE:%p @ %p\n",he,header);
+    free(header);            /* optional- if you want to free  */
+  }
 }

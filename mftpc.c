@@ -109,6 +109,7 @@ int mftpc_get(const char *param)
 	HASH_ADD_STR(req_headers, name, item);
 
 	create_header(header_buf,"qget",req_headers);
+	free_header(req_headers);
 	printf("get=>%s\n",header_buf);
 	if( fwrite(header_buf,strlen(header_buf),1,handle.out) < 0 )
 	{
@@ -123,19 +124,24 @@ int mftpc_get(const char *param)
 	{
 		goto free_1;
 	}
-	struct header_entry *res_headers = parse_headers(handle.in);
-	char *res_filename = get_header_value(res_headers,"filename");
-	printf("filename_parsed: %s!!\n",res_filename);
 
-	FILE *fp = file_open(res_filename, 1);
+	struct header_entry *res_headers = parse_headers(handle.in);
+
+	/*char *save_filename = get_header_value(res_headers,"filename");*/
+	char *save_filename = req_filename;
+
+	if (res_headers != NULL)
+	{
+		free_header(res_headers);
+	}
+
+	FILE *fp = file_open(save_filename, 1);
 	if (fp == NULL)
 	{
 		printf("[GET] file_open() failed.");
 		goto free_2;
 	}
 
-
-	//file_decompressto(handle.in,stdout);
 	file_decompressto(handle.in,fp);
 	ret = fclose(fp);
 
@@ -179,6 +185,8 @@ int mftpc_put(const char *param)
 	fwrite(header_buf,strlen(header_buf),1,handle.out);
 	file_compressto(fp,handle.out);
 	ret = fclose(fp);
+
+	/* receive response from server? */
 
 	free(header_buf); /* malloc */
 
