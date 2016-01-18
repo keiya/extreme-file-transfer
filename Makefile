@@ -16,13 +16,13 @@ all: mftpd mftpc
 mftpd: mftpd.o utility.o cwd.o file.o bsrb.o protocol.o $(LZ4DIR)/lz4.o
 	$(CC) $(FLAGS) $^ -pthread -o $@
 
-mftpc: cli.o utility.o cwd.o file.o bsrb.o protocol.o $(LZ4DIR)/lz4.o
+mftpc: mftpc.o utility.o cwd.o file.o bsrb.o protocol.o $(LZ4DIR)/lz4.o
 	$(CC) $(FLAGS) $^ -lreadline -pthread -o $@
 
 mftpd.o: mftpd.c
 	$(CC) $(FLAGS) -c $^ -o $@
 
-cli.o: cli.c
+mftpc.o: mftpc.c
 	$(CC) $(FLAGS) -c $^ -o $@
 
 protocol.o: protocol.c
