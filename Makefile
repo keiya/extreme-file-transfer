@@ -1,48 +1,51 @@
 LZ4DIR = lz4/lib
-CFLAGS += -DDEBUG -DRGCDEBUG
+CFLAGS += -Wall -O3 -DDEBUG
 FLAGS  := $(CFLAGS) $(LDFLAGS)
 
 #.PHONY: liblz4
 
 #all: liblz4 lz4ring mftpd
 #all: lz4ring mftpd
-all: mftpd mftpc
+all: mftpc mftpd
 
 #lz4ring: $(LZ4DIR)/lz4.o blockStreaming_ringBuffer.c
 #		$(CC)      $(FLAGS) $^ -o $@$(EXT)
 #liblz4:
 #	@cd $(LZ4DIR); $(MAKE) -e all
 
-mftpd: mftpd.o utility.o cwd.o file.o bsrb.o protocol.o $(LZ4DIR)/lz4.o
-	$(CC) $(FLAGS) $^ -pthread -o $@
-
-mftpc: mftpc.o utility.o cwd.o file.o bsrb.o protocol.o $(LZ4DIR)/lz4.o
+mftpc: mftpc.o bsrb.o cwd.o file.o protocol.o sock.o utility.o $(LZ4DIR)/lz4.o
 	$(CC) $(FLAGS) $^ -lreadline -pthread -o $@
 
-mftpd.o: mftpd.c
-	$(CC) $(FLAGS) -c $^ -o $@
+mftpd: mftpd.o bsrb.o cwd.o file.o protocol.o sock.o utility.o $(LZ4DIR)/lz4.o
+	$(CC) $(FLAGS) $^ -pthread -o $@
 
-mftpc.o: mftpc.c
-	$(CC) $(FLAGS) -c $^ -o $@
-
-protocol.o: protocol.c
-	$(CC) $(FLAGS) -c $^ -o $@
-
-file.o: file.c
-	$(CC) $(FLAGS) -c $^ -o $@
 
 bsrb.o: blockStreaming_ringBuffer.c
-	$(CC) $(FLAGS) -c $^ -o $@
-
-utility.o: utility.c
 	$(CC) $(FLAGS) -c $^ -o $@
 
 cwd.o: cwd.c
 	$(CC) $(FLAGS) -c $^ -o $@
 
+file.o: file.c
+	$(CC) $(FLAGS) -c $^ -o $@
+
+mftpc.o: mftpc.c
+	$(CC) $(FLAGS) -c $^ -o $@
+
+mftpd.o: mftpd.c
+	$(CC) $(FLAGS) -c $^ -o $@
+
+protocol.o: protocol.c
+	$(CC) $(FLAGS) -c $^ -o $@
+
 rubgc.o: rubgc.c
 	$(CC) $(FLAGS) -c $^ -o $@
 
+sock.o: sock.c
+	$(CC) $(FLAGS) -c $^ -o $@
+
+utility.o: utility.c
+	$(CC) $(FLAGS) -c $^ -o $@
 
 clean:
 	rm -f *.o

@@ -6,7 +6,7 @@
 #include "lz4/lib/lz4.h"
 #include "blockStreaming_ringBuffer.h"
 #define	FILEIO_BUFFERSIZE	4096
-FILE* file_open(char *filename, int iswrite)
+FILE* file_open(const char *filename, int iswrite)
 {
 	FILE* fp;
 	fp = fopen(filename,

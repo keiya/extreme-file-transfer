@@ -4,16 +4,20 @@
 int parse_command(FILE *in)
 {
 	char cmd[MFTP_HEADER_BUFFERSIZE];
-	fgets(cmd,MFTP_HEADER_BUFFERSIZE,in);
+	int command = MFTP_FAIL;
 
-	int command = 0;
+	if ( fgets(cmd,MFTP_HEADER_BUFFERSIZE,in) == NULL )
+	{
+		return 0;
+	}
+
 	if (cmd[0] == 'q')
 	{
 		if (strstr(cmd,"qget") == cmd)
 		{
 			command = MFTP_CMD_GET;
 		}
-		if (strstr(cmd,"qput") == cmd)
+		else if (strstr(cmd,"qput") == cmd)
 		{
 			command = MFTP_CMD_PUT;
 		}
@@ -26,50 +30,20 @@ int parse_command(FILE *in)
 		}
 		else if (cmd[1] == '4')
 		{
-			command = MFTP_RES_FAIL;
+			command = MFTP_FAIL;
 		}
 	}
 
 	return command;
 }
 
-/*
 struct header_entry* parse_headers(FILE *in)
 {
 	struct header_entry *headers = NULL;
 
-	char headcnts[MFTP_HEADER_BUFFERSIZE];
-	fgets(headcnts,MFTP_HEADER_BUFFERSIZE,in);
-	int headcnt = 0;
-
-	headcnt = atoi(headcnts);
-
-	int i;
-	for (i=0; i<headcnt;i++)
+	char requestheader[MFTP_HEADER_BUFFERSIZE];
+	while ( fgets(requestheader,MFTP_HEADER_BUFFERSIZE,in) != NULL )
 	{
-		char requestheader[MFTP_HEADER_BUFFERSIZE];
-		fgets(requestheader,MFTP_HEADER_BUFFERSIZE,in);
-		char *headvalue = split(requestheader,':');
-		chomp(headvalue);
-
-		struct header_entry *item = malloc(sizeof(struct header_entry)); // hashtable
-		strncpy(item->name, requestheader, 512);
-		strncpy(item->value, headvalue, 512);
-		HASH_ADD_STR(headers, name, item);
-	}
-	return headers;
-}
-*/
-
-struct header_entry* parse_headers(FILE *in)
-{
-	struct header_entry *headers = NULL;
-
-	int i;
-	while (1)
-	{
-		char requestheader[MFTP_HEADER_BUFFERSIZE];
-		fgets(requestheader,MFTP_HEADER_BUFFERSIZE,in);
 		if (strstr(requestheader,"\r\n") == requestheader)
 			break;
 

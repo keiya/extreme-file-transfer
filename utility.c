@@ -28,26 +28,4 @@ char* split(char *str, int delim)
 }
 
 
-int
-fdopen_sock( int sock, FILE **inp, FILE **outp )
-{
-	int sock2 ;
-	if( (sock2=dup(sock)) < 0 )
-	{
-	    return( -1 );
-	}
-	if( (*inp = fdopen( sock2, "r" )) == NULL )
-	{
-	    close( sock2 );
-	    return( -1 );
-	}
-	if( (*outp = fdopen( sock, "w" )) == NULL )
-	{
-	    fclose( *inp );
-	    *inp = 0 ;
-	    return( -1 );
-	}
-	setvbuf(*outp, (char *)NULL, _IONBF, 0);
-	return( 0 );
-}
 

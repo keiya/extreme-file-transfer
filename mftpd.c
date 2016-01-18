@@ -2,25 +2,18 @@
  * mftpd.c (XFT / Extreme File Transfer)
  * Keiya Chinen <s1011420@coins.tsukuba.ac.jp>
  */
-
+#include <libgen.h> /* basename */
+#include <pthread.h>	/* pthread_create */
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>	/* strlen() */
-#include <sys/types.h>	/* socket(), wait4() */
-#include <sys/socket.h>	/* socket() */
-#include <pthread.h>	/* pthread_create */
-#include <netdb.h>	/* getnameinfo() */
-#include <stdarg.h>
 #include <unistd.h>
-#include "mftpd.h"
-#include "utility.h"
 #include "file.h"
 #include "protocol.h"
-#include <libgen.h> /* basename */
+#include "sock.h"
+#include "utility.h"
 
-
-/* Garbage collector context */
-void *gc_ctx;
 
 struct mftpd_thread_arg {
 	int com;
@@ -30,6 +23,11 @@ struct mftpd_thread_arg {
 
 void* mftpd_conn_thread(struct mftpd_thread_arg *);
 void debug_print(const char *, ...);
+void mftpd_listen( int, int );
+int mftpd_do_command(struct mftpd_thread_arg *);
+void* mftpd_conn_thread( struct mftpd_thread_arg * );
+void mftpd_get_reply(const char *,FILE *);
+void mftpd_put_receive(const char *,FILE *);
 
 void debug_print(const char *format, ...)
 {
@@ -58,21 +56,28 @@ mftpd_listen( int portno, int ip_version )
 	debug_print("Listening on %d (fd==%d)",portno,acc);
 #endif
 	while( 1 )
-#include <stdio.h>
 	{
-		if( (com = accept( acc,0,0 )) < 0 )
+		if( (com = tcp_accept( acc,0,0 )) < 0 )
 		{
 			perror("accept");
 			exit( -1 );
 		}
-		arg = malloc( sizeof(struct mftpd_thread_arg) );
+#ifdef DEBUG
+	debug_print("accept (%d)",com);
+#endif
+		//arg = malloc( sizeof(struct mftpd_thread_arg) );
+		struct mftpd_thread_arg arg;
+		/*
 		if( arg == NULL )
 		{
 			perror("malloc()");
 			exit( -1 );
 		}
-		arg->com = com;
-		if( pthread_create( &worker, NULL, (void *)mftpd_conn_thread, (void *)arg)
+		*/
+		//arg->com = com;
+		arg.com = com;
+		//if( pthread_create( &worker, NULL, (void *)mftpd_conn_thread, (void *)arg)
+		if( pthread_create( &worker, NULL, (void *)mftpd_conn_thread, &arg)
 				!= 0 )
 		{
 			perror("pthread_create()");
@@ -109,14 +114,12 @@ mftpd_conn_thread( struct mftpd_thread_arg *conn_arg )
 	}
 	trans_arg->in = 
 	*/
-	while ( 1 )
-	{
-		mftpd_do_command(conn_arg);
-	}
+	while ( mftpd_do_command(conn_arg) )
+		;
 	fclose( conn_arg->in );
 	fclose( conn_arg->out );
 
-	free( conn_arg );
+	//free( conn_arg );
 	return( NULL );
 }
 
@@ -159,6 +162,7 @@ void mftpd_get_reply(const char *filename,FILE *out)
 
 void mftpd_put_receive(const char *filename,FILE *in)
 {
+		printf("put>>%s\n",filename);
 	if (filename == NULL)
 	{
 		return;
@@ -175,13 +179,21 @@ void mftpd_put_receive(const char *filename,FILE *in)
 }
 
 int
-//mftpd_do_command(char* cmd, struct mftpd_thread_arg *conn_arg)
 mftpd_do_command(struct mftpd_thread_arg *conn_arg)
 {
-	pthread_t worker;
+	/*pthread_t worker;*/
 	/* parse headers */
-	int cmd = parse_command(conn_arg->in);
+	int cmd;
+
+	/* return 0 if EOF */
+	if ( ! (cmd = parse_command(conn_arg->in)) )
+	{
+		return 0;
+	}
+
+	printf("cmd=%d\n",cmd);
 	struct header_entry *headers = parse_headers(conn_arg->in);
+	printf("headerend\n",cmd);
 
 	if (cmd == MFTP_CMD_GET)
 	{
@@ -201,8 +213,9 @@ mftpd_do_command(struct mftpd_thread_arg *conn_arg)
 	{
 	
 	}
-	return 0;
+	return 1;
 }
+
 
 int main( int argc, char *argv[] )
 {
@@ -220,83 +233,4 @@ int main( int argc, char *argv[] )
 	return 0;
 }
 
-#define PORTNO_BUFSIZE 30
-
-int
-tcp_acc_port( int portno, int ip_version )
-{
-	struct addrinfo hints, *ai;
-	char portno_str[PORTNO_BUFSIZE];
-	int err, s, on, pf;
-
-	switch( ip_version )
-	{
-		case 4:
-			pf = PF_INET;
-			break;
-		case 6:
-			pf = PF_INET6;
-			break;
-		default:
-			fprintf(stderr,"bad IP version: %d.  4 or 6 is allowed.\n",
-					ip_version );
-			goto error0;
-	}
-	snprintf( portno_str,sizeof(portno_str),"%d",portno );
-	memset( &hints, 0, sizeof(hints) );
-	ai = NULL;
-	hints.ai_family   = pf ;
-	hints.ai_flags    = AI_PASSIVE;
-	hints.ai_socktype = SOCK_STREAM ;
-	if( (err = getaddrinfo( NULL, portno_str, &hints, &ai )) )
-	{
-		fprintf(stderr,"bad portno %d? (%s)\n",portno,
-				gai_strerror(err) );
-		goto error0;
-	}
-	if( (s = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol)) < 0 )
-	{
-		perror("socket");
-		goto error1;
-	}
-
-#ifdef	IPV6_V6ONLY
-	if( ai->ai_family == PF_INET6 )
-	{
-		on = 1;
-		if( setsockopt(s,IPPROTO_IPV6, IPV6_V6ONLY,&on,sizeof(on)) < 0 )
-		{
-			perror("setsockopt(,,IPV6_V6ONLY)");
-			goto error1;
-		}
-	}
-#endif	/*IPV6_V6ONLY*/
-
-	if( bind(s,ai->ai_addr,ai->ai_addrlen) < 0 )
-	{
-		perror("bind");
-		fprintf(stderr,"port number %d can be already used. wait a moment or kill another program.\n", portno );
-		goto error2;
-	}
-	on = 1;
-	if( setsockopt( s, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on) ) < 0 )
-	{
-		perror("setsockopt(,,SO_REUSEADDR)");
-		goto error2;
-	}
-	if( listen( s, 5 ) < 0 )
-	{
-		perror("listen");
-		goto error2;
-	}
-	freeaddrinfo( ai );
-	return( s );
-
-error2:
-	close( s );	
-error1:
-	freeaddrinfo( ai );
-error0:
-	return( -1 );
-}
 

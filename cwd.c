@@ -59,7 +59,7 @@ int cwd_set_root(const char* setrootpath)
 	size_t setrootpath_size, cpy_size;
 	setrootpath_size = strlen(setrootpath);
 	// equivalent: min(rootpath_size,PATH_MAX)
-	cpy_size = setrootpath_size < PATH_MAX ? setrootpath_size : PATH_MAX;
+	setrootpath_size < PATH_MAX ? (cpy_size = setrootpath_size) : (cpy_size = PATH_MAX);
 	if (! realpath(setrootpath,root_path))
 		return 0;
 	strncpy(cwd_path,root_path,PATH_MAX);
