@@ -13,10 +13,10 @@ all: mftpd mftpc
 #liblz4:
 #	@cd $(LZ4DIR); $(MAKE) -e all
 
-mftpd: mftpd.o utility.o cwd.o rubgc.o file.o bsrb.o protocol.o $(LZ4DIR)/lz4.o
+mftpd: mftpd.o utility.o cwd.o file.o bsrb.o protocol.o $(LZ4DIR)/lz4.o
 	$(CC) $(FLAGS) $^ -pthread -o $@
 
-mftpc: cli.o utility.o cwd.o rubgc.o file.o bsrb.o protocol.o $(LZ4DIR)/lz4.o
+mftpc: cli.o utility.o cwd.o file.o bsrb.o protocol.o $(LZ4DIR)/lz4.o
 	$(CC) $(FLAGS) $^ -lreadline -pthread -o $@
 
 mftpd.o: mftpd.c
