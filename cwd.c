@@ -2,6 +2,7 @@
  * cwd.c (current working directory utility)
  * Keiya Chinen <s1011420@coins.tsukuba.ac.jp>
  */
+#include <libgen.h> /* basename */
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -47,8 +48,23 @@ int cwd_is_statable(const char* path)
 
 void cwd_get_path(struct cwd_ctx *ctx,char *buf)
 {
-	size_t buf_size;
 	strncpy(buf,ctx->cwd_path,PATH_MAX);
+}
+
+void cwd_realpath(struct cwd_ctx *ctx,char *dirname,char *path)
+{
+	if (strchr(dirname,'/') == dirname) /* absolute path */
+	{
+		realpath(dirname,path);
+	}
+	else /*relative path*/
+	{
+		char tmp[PATH_MAX];
+		char cwdpath[PATH_MAX];
+		cwd_get_path(ctx,cwdpath);
+		snprintf(tmp,PATH_MAX,"%s/%s",cwdpath,dirname);	
+		realpath(tmp,path);
+	}
 }
 
 // document-root

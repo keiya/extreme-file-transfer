@@ -30,8 +30,8 @@ void debug_print(const char *, ...);
 void mftpd_listen( int, int );
 int mftpd_do_command(struct mftpd_thread_arg *);
 void* mftpd_conn_thread( struct mftpd_thread_arg * );
-void mftpd_get_reply(const char *,FILE *);
-void mftpd_put_receive(const char *,FILE *);
+void mftpd_get_reply(const char *,FILE *,struct cwd_ctx *cwd);
+void mftpd_put_receive(const char *,FILE *,struct cwd_ctx *cwd);
 
 void debug_print(const char *format, ...)
 {
@@ -128,18 +128,20 @@ mftpd_conn_thread( struct mftpd_thread_arg *conn_arg )
 	return( NULL );
 }
 
-void mftpd_get_reply(const char *filename,FILE *out)
+void mftpd_get_reply(const char *filename,FILE *out,struct cwd_ctx *cwd)
 {
 	printf("[get]file:%s\n",filename);
 	if (filename == NULL)
 	{
 		return;
 	}
-	char *basec = strdup(filename);
-	FILE* fp = file_open(filename, 0);
+	char path[PATH_MAX];
+	cwd_realpath(cwd,filename,path);
+	char *basec = strdup(path);
+	FILE* fp = file_open(path, 0);
 	if (fp != NULL)
 	{
-		printf("[get]fo:%s\n",filename);
+		printf("[get]fo:%s\n",path);
 		char *bname = basename(basec);
 		printf("bname = %s\n",bname);
 
@@ -152,7 +154,7 @@ void mftpd_get_reply(const char *filename,FILE *out)
 		create_header(header_buf,"s20",headers);
 		free_header(headers);
 	
-		printf("[GET][s20]%s\n",filename);
+		printf("[GET][s20]%s\n",path);
 		fwrite(header_buf,strlen(header_buf),1,out);
 		free(header_buf); /* malloc */
 		file_compressto(fp,out);
@@ -160,21 +162,23 @@ void mftpd_get_reply(const char *filename,FILE *out)
 	}
 	else
 	{
-		printf("[GET][s40]%s\n",filename);
+		printf("[GET][s40]%s\n",path);
 		fprintf(out,"s40\r\n");
 	}
 
 	free(basec); /* strdup */
 }
 
-void mftpd_put_receive(const char *filename,FILE *in)
+void mftpd_put_receive(const char *filename,FILE *in,struct cwd_ctx *cwd)
 {
-		printf("put>>%s\n",filename);
 	if (filename == NULL)
 	{
 		return;
 	}
-	FILE *fp = file_open(filename, 1);
+	char path[PATH_MAX];
+	cwd_realpath(cwd,filename,path);
+		printf("put>>%s\n",path);
+	FILE *fp = file_open(path, 1);
 	if (fp == NULL)
 	{
 		printf("[PUT] file_open() failed.");
@@ -214,11 +218,13 @@ void mftpd_cd(const char *dirname,FILE *out,struct cwd_ctx* cwd)
 void mftpd_dir(const char *dirname,FILE *out, struct cwd_ctx* cwd)
 {
 	char path[PATH_MAX];
-	if (strchr(dirname,'/') == dirname) /* absolute path */
+	cwd_realpath(cwd,dirname,path);
+	/*
+	if (strchr(dirname,'/') == dirname)
 	{
 		realpath(dirname,path);
 	}
-	else /*relative path*/
+	else
 	{
 		char tmp[PATH_MAX];
 		char cwdpath[PATH_MAX];
@@ -226,6 +232,7 @@ void mftpd_dir(const char *dirname,FILE *out, struct cwd_ctx* cwd)
 		snprintf(tmp,PATH_MAX,"%s/%s",cwdpath,dirname);	
 		realpath(tmp,path);
 	}
+	*/
 	fprintf(out,"s20\r\ndirname:%s\r\n\r\n",path);
 
 	struct lsent lse;
@@ -259,7 +266,7 @@ mftpd_do_command(struct mftpd_thread_arg *conn_arg)
 	{
 		char *filename = get_header_value(headers,"filename");
 		char *decoded = pdecode(crl,filename);
-		mftpd_get_reply(decoded,conn_arg->out);
+		mftpd_get_reply(decoded,conn_arg->out,conn_arg->cwd);
 		free(filename); /* get_header_value */
 		pfree(decoded);
 	}
@@ -267,7 +274,7 @@ mftpd_do_command(struct mftpd_thread_arg *conn_arg)
 	{
 		char *filename = get_header_value(headers,"filename");
 		char *decoded = pdecode(crl,filename);
-		mftpd_put_receive(decoded,conn_arg->in);
+		mftpd_put_receive(decoded,conn_arg->in,conn_arg->cwd);
 		free(filename); /* get_header_value */
 		pfree(decoded);
 	}

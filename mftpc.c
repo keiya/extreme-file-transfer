@@ -389,24 +389,19 @@ int main( int argc, char *argv[] )
 		add_history(input);
 		char *cmd = strdup(input);
 		char *param = lexer(cmd);
-		printf("lexer() end param = '%s'\n",param);
 		int status = 0;
 		if (strcmp(cmd,"get")==0) /* fetch data from remote */
 		{
 			if (check_connected())
 			{
-				int res = mftpc_get(param);
-				if (res == -1)
-					printf("failed\n");
+				status = mftpc_get(param);
 			}
 		}
 		else if (strcmp(cmd,"put")==0) /* send data to remote */
 		{
 			if (check_connected())
 			{
-				int res = mftpc_put(param);
-				if (res == -1)
-					printf("failed\n");
+				status = mftpc_put(param);
 			}
 		}
 		else if (strcmp(cmd,"open")==0) /* open a connection */
