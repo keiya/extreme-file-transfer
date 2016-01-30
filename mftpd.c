@@ -3,6 +3,7 @@
  * Keiya Chinen <s1011420@coins.tsukuba.ac.jp>
  */
 #include <libgen.h> /* basename */
+#include <limits.h>
 #include <pthread.h>	/* pthread_create */
 #include <stdarg.h>
 #include <stdio.h>
@@ -10,15 +11,18 @@
 #include <string.h>	/* strlen() */
 #include <unistd.h>
 #include "file.h"
+#include "ls.h"
 #include "protocol.h"
 #include "sock.h"
 #include "utility.h"
+#include "cwd.h"
 
 
 struct mftpd_thread_arg {
 	int com;
 	FILE *in;
 	FILE *out;
+	struct cwd_ctx *cwd;
 };
 
 void* mftpd_conn_thread(struct mftpd_thread_arg *);
@@ -114,6 +118,7 @@ mftpd_conn_thread( struct mftpd_thread_arg *conn_arg )
 	}
 	trans_arg->in = 
 	*/
+	conn_arg->cwd = cwd_init();
 	while ( mftpd_do_command(conn_arg) )
 		;
 	fclose( conn_arg->in );
@@ -183,6 +188,54 @@ void mftpd_put_receive(const char *filename,FILE *in)
 	fclose(fp);
 }
 
+void mftpd_cd(const char *dirname,FILE *out,struct cwd_ctx* cwd)
+{
+/*	
+	char path[PATH_MAX];
+	realpath(dirname,path);
+	fprintf(out,"s20\r\ndirname:%s\r\n\r\n",path);
+
+	struct lsent lse;
+	ls(dirname,&lse);
+	display(&lse,out,1);
+	free_lse(&lse);
+
+	fprintf(out,"\r\n");
+*/
+	if ( ! cwd_chdir(cwd,dirname,0))
+	{
+		perror("cd");
+	}
+	char buf[PATH_MAX];
+	cwd_get_path(cwd,buf);
+	fprintf(out,"s20\r\ndirname:%s\r\n\r\n",buf);
+}
+
+void mftpd_dir(const char *dirname,FILE *out, struct cwd_ctx* cwd)
+{
+	char path[PATH_MAX];
+	if (strchr(dirname,'/') == dirname) /* absolute path */
+	{
+		realpath(dirname,path);
+	}
+	else /*relative path*/
+	{
+		char tmp[PATH_MAX];
+		char cwdpath[PATH_MAX];
+		cwd_get_path(cwd,cwdpath);
+		snprintf(tmp,PATH_MAX,"%s/%s",cwdpath,dirname);	
+		realpath(tmp,path);
+	}
+	fprintf(out,"s20\r\ndirname:%s\r\n\r\n",path);
+
+	struct lsent lse;
+	ls(path,&lse);
+	display(&lse,out,1);
+	free_lse(&lse);
+
+	fprintf(out,"\r\n");
+}
+
 int
 mftpd_do_command(struct mftpd_thread_arg *conn_arg)
 {
@@ -200,26 +253,45 @@ mftpd_do_command(struct mftpd_thread_arg *conn_arg)
 	struct header_entry *headers = parse_headers(conn_arg->in);
 	printf("headerend\n");
 
+	void *crl = pinit();
+	if (crl == NULL) return 0;
 	if (cmd == MFTP_CMD_GET)
 	{
 		char *filename = get_header_value(headers,"filename");
-		mftpd_get_reply(filename,conn_arg->out);
+		char *decoded = pdecode(crl,filename);
+		mftpd_get_reply(decoded,conn_arg->out);
 		free(filename); /* get_header_value */
+		pfree(decoded);
 	}
 	else if (cmd == MFTP_CMD_PUT)
 	{
 		char *filename = get_header_value(headers,"filename");
-		mftpd_put_receive(filename,conn_arg->in);
+		char *decoded = pdecode(crl,filename);
+		mftpd_put_receive(decoded,conn_arg->in);
 		free(filename); /* get_header_value */
+		pfree(decoded);
 	}
 	else if (cmd == MFTP_CMD_CD)
 	{
-			
+		char *dirname = get_header_value(headers,"dirname");
+		char *decoded = pdecode(crl,dirname);
+		mftpd_cd(decoded,conn_arg->out,conn_arg->cwd);
+		free(dirname); /* get_header_value */
+		pfree(decoded);
 	}
 	else if (cmd == MFTP_CMD_DIR)
 	{
-	
+		char *dirname = get_header_value(headers,"dirname");
+		char *decoded = pdecode(crl,dirname);
+		mftpd_dir(decoded,conn_arg->out,conn_arg->cwd);
+		free(dirname); /* get_header_value */
+		pfree(decoded);
 	}
+	else
+	{
+		fprintf(conn_arg->out,"s40\r\n\r\n");
+	}
+	pclean(crl);
 	return 1;
 }
 

@@ -4,6 +4,7 @@ Protocol
 ========
 A mFTP (Protocol) is like a HTTP (Protocol).
 All control traffic are transmitted by plain text except data payload (body).
+Filename or pathname should be encoded by percent-encoding (URL encoding).
 
 Var = Variable Size
 
@@ -30,7 +31,7 @@ Request header should begin with `q`.
 +-----------+  |      |               |           |
 |              |      |               |           |
 +--------------+------+---------------+-----------+
-| 0x0D 0x0A (start with \r\n means end of header) |
+| 0x0D 0x0A (\r\n is a terminator of head)        |
 +-------------------------------------------------+
 | Body (Binary/Text)                              |
 |                                                 |
@@ -60,7 +61,7 @@ Request header should begin with `q`.
 +-----------+  |      |               |           |
 |              |      |               |           |
 +--------------+------+---------------+-----------+
-| 0x0D 0x0A (start with \r\n means end of header) |
+| 0x0D 0x0A (\r\n is a terminator of head)        |
 +-------------------------------------------------+
 | Body (Binary/Text)                              |
 |                                                 |
@@ -77,15 +78,51 @@ Response header should begin with `s`.
 
 
 ## GET
-### Request Header
-* filename (Required)
-
-### Response Header
-* filename (Required)
+### Request `qget`
+* Header
+    * filename (Required)
 
 ## PUT
-### Request Header
-* filename (Required)
+### Request `qput`
+* Header
+    * filename (Required)
+* Payload
+    * LZ4 Compressed Data
 
-### Response Header
-* filename (Required)
+## DIR
+### Request `qdir`
+* Header
+    * dirname (Required)
+* Payload
+    * 1 file per 1 line
+    * Tab separated entry
+    * Terminator is `\r\n`
+
+## CD
+### Request `qcd`
+* Header
+    * dirname (Required)
+
+
+XFT Command Line Interface
+==========================
+* `get FILENAME`
+    * Fetch 'FILENAME' from server
+* `put FILENAME`
+    * Send 'FILENAME' to server
+* `ls [PATHNAME]` or `dir [PATHNAME]`
+    * Remote ls
+* `!ls [PATHNAME]` or `!dir [PATHNAME]`
+    * Local ls
+* `cd [PATHNAME]`
+    * Change remote working directory
+* `lcd [PATHNAME]`
+    * Change local working directory
+* `open HOST:PORT`
+    * Connect to the server
+
+
+XFT Server
+==========
+`./mftpd PORT`
+

@@ -21,6 +21,14 @@ int parse_command(FILE *in)
 		{
 			command = MFTP_CMD_PUT;
 		}
+		else if (strstr(cmd,"qdir") == cmd)
+		{
+			command = MFTP_CMD_DIR;
+		}
+		else if (strstr(cmd,"qcd") == cmd)
+		{
+			command = MFTP_CMD_CD;
+		}
 	}
 	else if (cmd[0] == 's')
 	{
@@ -77,9 +85,9 @@ char *get_header_value(struct header_entry *header, char *header_name) {
     HASH_FIND_STR( header, header_name, tmp );
 	if (!tmp)
 		return NULL;
-	char *string = malloc(strlen(tmp->value)); // hashtable
+	char *string = malloc(strlen(tmp->value) + 1); // hashtable
 	strcpy(string,tmp->value);	
-	free(tmp);
+	//free(tmp);
     return string;
 }
 
@@ -101,11 +109,11 @@ void create_header(char *buf,const char *cmd,struct header_entry *headers)
 
 void free_header(struct header_entry *he)
 {
-  struct header_entry *header, *tmp;
-
-  HASH_ITER(hh, he, header, tmp) {
-    HASH_DEL(he,header);  /* delete; users advances to next */
-printf("FREE:%p @ %p\n",he,header);
-    free(header);            /* optional- if you want to free  */
-  }
+	if (he == NULL) return;
+	struct header_entry *header, *tmp;
+	HASH_ITER(hh, he, header, tmp) {
+		//printf("FREE:%p @ %p\n",he,header);
+		HASH_DEL(he,header);  /* delete; users advances to next */
+		free(header);            /* optional- if you want to free  */
+	}
 }

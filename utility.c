@@ -1,5 +1,7 @@
 #include <string.h>
 #include <stdio.h>
+#include <curl/curl.h>
+
 char* chomp( char *str )
 {
     int len ;
@@ -15,7 +17,6 @@ char* chomp( char *str )
 	return( str );
 }
 
-
 char* split(char *str, int delim)
 {
 	char *splitptr = NULL;
@@ -27,5 +28,27 @@ char* split(char *str, int delim)
 	return splitptr;
 }
 
+void* pinit()
+{
+    return (void*)curl_easy_init();
+}
 
+char* pencode(void *crl, const char *str)
+{
+    return curl_easy_escape((CURL*)crl,str,0);
+}
 
+char* pdecode(void *crl, const char *str)
+{
+    return curl_easy_unescape((CURL*)crl,str,0,0);
+}
+
+void pfree(char *p)
+{
+    curl_free(p);
+}
+
+void pclean(void *crl)
+{
+	curl_easy_cleanup((CURL*)crl);
+}

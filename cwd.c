@@ -8,9 +8,7 @@
 #include <sys/stat.h>
 #include <limits.h>
 #include <unistd.h>
-
-char root_path[PATH_MAX+1];
-char cwd_path[PATH_MAX+1];
+#include "cwd.h"
 
 /*
 int main(void)
@@ -29,12 +27,14 @@ int main(void)
 }
 */
 
-void cwd_init()
+struct cwd_ctx* cwd_init()
 {
-	root_path[0] = '/';
-	root_path[1] = '\0';
-	cwd_path[0] = '/';
-	cwd_path[1] = '\0';
+	struct cwd_ctx *ctx = (struct cwd_ctx *)malloc(sizeof(struct cwd_ctx));
+	ctx->root_path[0] = '/';
+	ctx->root_path[1] = '\0';
+	ctx->cwd_path[0] = '/';
+	ctx->cwd_path[1] = '\0';
+	return ctx;
 }
 
 int cwd_is_statable(const char* path)
@@ -45,39 +45,36 @@ int cwd_is_statable(const char* path)
 	else return 0;
 }
 
-void cwd_get_path(char *buf)
+void cwd_get_path(struct cwd_ctx *ctx,char *buf)
 {
 	size_t buf_size;
-	buf_size = strlen(buf);
-	strncpy(buf,cwd_path,buf_size);
-	buf[buf_size] = '\0';
+	strncpy(buf,ctx->cwd_path,PATH_MAX);
 }
 
 // document-root
-int cwd_set_root(const char* setrootpath)
+int cwd_set_root(struct cwd_ctx *ctx, const char* setrootpath)
 {
 	size_t setrootpath_size, cpy_size;
 	setrootpath_size = strlen(setrootpath);
 	// equivalent: min(rootpath_size,PATH_MAX)
 	setrootpath_size < PATH_MAX ? (cpy_size = setrootpath_size) : (cpy_size = PATH_MAX);
-	if (! realpath(setrootpath,root_path))
+	if (! realpath(setrootpath,ctx->root_path))
 		return 0;
-	strncpy(cwd_path,root_path,PATH_MAX);
+	strncpy(ctx->cwd_path,ctx->root_path,PATH_MAX);
 	return 1;
 }
 
-int cwd_chdir(const char* chdirpath)
+int cwd_chdir(struct cwd_ctx *ctx, const char* chdirpath, int change)
 {
 	char path_buf[PATH_MAX+1];
 	char fullpath_buf[PATH_MAX+1];
 	char resolved_path[PATH_MAX+1];
 
-	strncpy(fullpath_buf,cwd_path,PATH_MAX);
+	strncpy(fullpath_buf,ctx->cwd_path,PATH_MAX);
 
-	cwd_get_path(cwd_path);
 	if (strchr(chdirpath,'/') == chdirpath)
 	{ // slash(/) --> document-root(dir_set_root)
-		strncpy(path_buf,root_path,PATH_MAX);
+		strncpy(path_buf,ctx->root_path,PATH_MAX);
 		strncat(path_buf,chdirpath,PATH_MAX);
 #ifdef DEBUG
 		printf("slash %s\n",path_buf);
@@ -110,22 +107,31 @@ int cwd_chdir(const char* chdirpath)
 	if (! realpath(fullpath_buf,resolved_path))
 		return 0;
 #ifdef DEBUG
-	printf("resolved:%s root_path:%s\n",resolved_path,root_path);
+	printf("resolved:%s root_path:%s\n",resolved_path,ctx->root_path);
 #endif
-	if (NULL == strstr(resolved_path,root_path))
+	if (NULL == strstr(resolved_path,ctx->root_path))
 	{ // directory climbing (directory traversal)
 		return 0;
 	}
 	else
 	{
 	}
-	strncpy(cwd_path,resolved_path,PATH_MAX);
+	strncpy(ctx->cwd_path,resolved_path,PATH_MAX);
 #ifdef DEBUG
-	printf("cwd>%s<\n",cwd_path);
+	printf("cwd>%s<\n",ctx->cwd_path);
 #endif
-	if (chdir(cwd_path) != 0)
+	if (change)
 	{
+		if (chdir(ctx->cwd_path) != 0)
+		{
+			return 0;
+		}
+		else
+		{
+			return 1;
+		}
+	}
+	else {
 		return 0;
 	}
-	return 1;
 }

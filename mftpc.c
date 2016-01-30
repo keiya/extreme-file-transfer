@@ -12,13 +12,12 @@
 #include <unistd.h>
 #include "cwd.h"
 #include "file.h"
+#include "ls.h"
 #include "protocol.h"
 #include "sock.h"
 #include "utility.h"
 
 #define MAX_HISTORY_CNT 10
-
-char *cmd;
 
 struct mftpc_conn_handle {
 	FILE *in;
@@ -27,6 +26,8 @@ struct mftpc_conn_handle {
 
 struct mftpc_conn_handle handle;
 int connected = 0;
+
+struct cwd_ctx* cwd;
 
 void sigint_action(int signum, siginfo_t *info, void *ctx)
 {
@@ -180,6 +181,7 @@ int mftpc_put(const char *param)
 	strncpy(item->value, dst_filename, 512);
 	HASH_ADD_STR(headers, name, item);
 	create_header(header_buf,"qput",headers);
+		free_header(headers);
 	printf("HEADER=[%s]\n",header_buf);
 
 	fwrite(header_buf,strlen(header_buf),1,handle.out);
@@ -196,6 +198,124 @@ free_1:
 	return ret;
 }
 
+void mftpc_dir(char *param)
+{
+	char target[MFTP_HEADER_BUFFERSIZE_HALF];
+	void *crl = pinit();
+	if (crl == NULL)
+	{
+		perror("curl");
+		return;
+	}
+	char *encoded;
+	if (param == NULL || param[0] == '\0')
+	{
+		strcpy(target,"./");
+	}
+	else
+	{
+		encoded = pencode(crl,target);
+		strncpy(target,param,MFTP_HEADER_BUFFERSIZE_HALF);
+		pfree(encoded);
+	}
+
+	fprintf(handle.out,"qdir\r\ndirname:%s\r\n\r\n",target);
+
+	int cmd = parse_command(handle.in);
+	if (cmd == MFTP_FAIL)
+	{
+		goto free_1;
+	}
+
+	struct header_entry *res_headers = parse_headers(handle.in);
+
+	char *listing_dir = get_header_value(res_headers,"dirname");
+	free_header(res_headers); /* parse_headers */
+
+	printf("[DIR]%s\n",listing_dir);
+	free(listing_dir);
+
+	char line[1024];
+	char *decoded;
+	while ( fgets(line,1024,handle.in) != NULL )
+	{
+		if (strstr(line,"\r\n") == line)
+			break;
+		char *filename = strrchr(line,'\t');
+		if (filename == NULL) continue;
+		chomp(filename);
+		decoded = pdecode(crl,filename);
+		if (decoded != NULL)
+		{
+			//fputs(line,stdout);
+			fwrite(line,1,filename-line,stdout); // write out exclude a filename
+			fputs(decoded,stdout);
+		}
+		printf("\n");
+		pfree(decoded);
+	}
+
+free_1:
+	pclean(crl);
+}
+
+int mftpc_cd(char *param)
+{
+	int status = 0;
+	if (param == NULL || param[0] == '\0')
+	{
+		return;
+	}
+	void *crl = pinit();
+	if (crl == NULL)
+	{
+		perror("curl");
+		return;
+	}
+	char *encoded;
+	encoded = pencode(crl,param);
+	fprintf(handle.out,"qcd\r\ndirname:%s\r\n\r\n",encoded);
+	pfree(encoded);
+
+	int cmd = parse_command(handle.in);
+	if (cmd == MFTP_FAIL)
+	{
+		status = -1;
+		goto free_1;
+	}
+
+	struct header_entry *res_headers = parse_headers(handle.in);
+
+	char *listing_dir = get_header_value(res_headers,"dirname");
+	printf("resheaders:%p\n",res_headers);
+	free_header(res_headers); /* parse_headers */
+	printf("[DIR]%s\n",listing_dir);
+	free(listing_dir);
+
+free_1:
+	pclean(crl);
+	return status;
+}
+
+void mftpc_lcd(char *param)
+{
+	if ( ! cwd_chdir(cwd,param,1))
+	{
+		perror("cd");
+	}
+}
+
+void mftpc_lls(char *param)
+{
+	struct lsent lse;
+	if (param == NULL)
+		ls(".",&lse); /* current dir */
+	else
+		ls(param,&lse);
+	display(&lse,stdout,0);
+	free_lse(&lse);
+}
+
 void mftpc_open(char *param)
 {
 	char *open_host = strdup(param);
@@ -210,8 +330,13 @@ void mftpc_open(char *param)
 /* interpret user's inputs */
 char* lexer(char *cmd)
 {
-	if (cmd == NULL) return NULL;
+	int len = strlen(cmd);
+	if (cmd == NULL || len <= 0) return NULL;
 	int cur = 0;
+
+	/* shell command */
+	if (cmd[0] == '!')
+		cmd++;
 
 	/* parsing command */
 	while (!isalpha(cmd[0]))
@@ -221,8 +346,12 @@ char* lexer(char *cmd)
 	
 	do {
 		cur++;
-	} while (cmd[cur] != ' ');
+	}
+	while (cmd[cur] != NULL && cmd[cur] != ' ');
 	cmd[cur] = '\0';
+	printf("%d %d\n",len,cur);
+	if (len <= cur + 1)
+		return NULL;
 
 	/* parsing parameter */
 	return cmd + cur + 1;
@@ -252,13 +381,17 @@ int main( int argc, char *argv[] )
 	HIST_ENTRY *history = NULL;
 
 	show_prompt(prompt);
-	cwd_init();
-	while ( (cmd = readline(prompt)) )
+	cwd = cwd_init();
+	char *input;
+	while ( (input = readline(prompt)) )
 	{
 		/* add to readline history */
-		add_history(cmd);
+		add_history(input);
+		char *cmd = strdup(input);
 		char *param = lexer(cmd);
-		if (strcmp(cmd,"get")==0)
+		printf("lexer() end param = '%s'\n",param);
+		int status = 0;
+		if (strcmp(cmd,"get")==0) /* fetch data from remote */
 		{
 			if (check_connected())
 			{
@@ -267,7 +400,7 @@ int main( int argc, char *argv[] )
 					printf("failed\n");
 			}
 		}
-		else if (strcmp(cmd,"put")==0)
+		else if (strcmp(cmd,"put")==0) /* send data to remote */
 		{
 			if (check_connected())
 			{
@@ -276,9 +409,29 @@ int main( int argc, char *argv[] )
 					printf("failed\n");
 			}
 		}
-		else if (strcmp(cmd,"open")==0)
+		else if (strcmp(cmd,"open")==0) /* open a connection */
 		{
 			mftpc_open(param);
+		}
+		else if (strcmp(cmd,"cd")==0) /* remote cd */
+		{
+			status = mftpc_cd(param);
+		}
+		else if (strcmp(cmd,"lcd")==0) /* local cd */
+		{
+			mftpc_lcd(param);
+		}
+		else if (strcmp(cmd,"ls")==0 || strcmp(cmd,"dir")==0) /* remote ls */
+		{
+			mftpc_dir(param);
+		}
+		else if (strcmp(cmd,"!ls")==0 || strcmp(cmd,"!dir")==0) /* local ls */
+		{
+			mftpc_lls(param);
+		}
+		if (status)
+		{
+			printf("error %d\n",status);
 		}
 
 		show_prompt(prompt);
@@ -289,6 +442,7 @@ int main( int argc, char *argv[] )
 			history = remove_history(0);
 			free(history);
 		}
+		free(cmd); /* strdup() */
 	}
 	return 0;
 }
