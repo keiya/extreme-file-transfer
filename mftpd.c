@@ -26,7 +26,6 @@ struct mftpd_thread_arg {
 	struct cwd_ctx *cwd;
 };
 
-void* mftpd_conn_thread(struct mftpd_thread_arg *);
 void debug_print(const char *, ...);
 void mftpd_listen( int, int );
 int mftpd_do_command(struct mftpd_thread_arg *);
@@ -70,7 +69,7 @@ mftpd_listen( int portno, int ip_version )
 {
 	int acc,com;
 	pthread_t worker ;
-	//struct mftpd_thread_arg *arg;
+	struct mftpd_thread_arg *arg;
 	acc = tcp_acc_port( portno, ip_version );
 	if( acc < 0 ) {
 		perror("tcp_acc_port");
@@ -89,10 +88,14 @@ mftpd_listen( int portno, int ip_version )
 #ifdef DEBUG
 	debug_print("accept (%d)",com);
 #endif
-		struct mftpd_thread_arg arg;
-		arg.com = com;
-		if( pthread_create( &worker, NULL, (void *)mftpd_conn_thread, &arg)
-				!= 0 )
+		arg = malloc( sizeof(struct mftpd_thread_arg) );
+ 		if( arg == NULL )
+ 		{
+ 			perror("malloc()");
+ 			exit( -1 );
+ 		}
+		arg->com = com;
+		if( pthread_create( &worker, NULL, (void *)mftpd_conn_thread, (void *)arg) != 0)
 		{
 			perror("pthread_create()");
 			exit( 1 );
@@ -121,8 +124,16 @@ mftpd_conn_thread( struct mftpd_thread_arg *conn_arg )
 	conn_arg->cwd = cwd_init();
 	while ( mftpd_do_command(conn_arg) )
 		;
+	printf("fc1 in %p\n",conn_arg->in);
 	fclose( conn_arg->in );
+	printf("fc2 out %p\n",conn_arg->out);
 	fclose( conn_arg->out );
+	printf("fc3\n");
+	free(conn_arg);
+
+#ifdef DEBUG
+	debug_print("socket has been closed");
+#endif
 
 	return( NULL );
 }

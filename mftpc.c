@@ -83,8 +83,8 @@ void show_prompt(char *buf)
 void print_stats(struct timespec *start, struct timespec *end, size_t netsz, size_t iosz)
 {
 	long long unsigned int diff = nanodiff(start,end);
-	double sec = diff / 1000000000;
-	double netio = netsz / iosz * 100.0;
+	double sec = (double)diff / 1000000000.0;
+	double netio = (double)netsz / (double)iosz * 100.0;
 	printf("Transferred %d bytes (Extracted: %d bytes, Net/IO: %.2f %%) in %.3f sec\nNetwork Throughput: %.3f Mbps, IO Throughput: %.3f Mbps\n",
 					(int)netsz,(int)iosz,netio,
 					sec,
@@ -128,12 +128,8 @@ int mftpc_get(const char *param)
 
 	create_header(header_buf,"qget",req_headers);
 	free_header(req_headers);
-	size_t len = strlen(header_buf);
-	if( fwrite(header_buf,len,1,handle.out) < len)
-	{
-	    fprintf(stderr,"fwrite() failed\n");
-		goto free_1;
-	}
+	fwrite(header_buf,strlen(header_buf),1,handle.out);
+
 
 	/* == clock start == */
 	current_utc_time(&start);
