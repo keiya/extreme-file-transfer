@@ -11,6 +11,7 @@
 #include <getopt.h>
 #include <time.h>
 #include <libgen.h>
+#include <limits.h>
 #include "ls.h"
 #include "utility.h"
 
@@ -44,8 +45,8 @@ int statfile(struct filemeta *file, char *path)
 	file->gid = statbuf.st_gid;
 	file->size = statbuf.st_size;
 #ifdef __APPLE__
-	file->mtime = statbuf.st_mtime.tv_sec;
-	file->ctime = statbuf.st_ctime.tv_sec;
+	file->mtime = statbuf.st_mtime;
+	file->ctime = statbuf.st_ctime;
 #elif __linux__
 	file->mtime = statbuf.st_mtim.tv_sec;
 	file->ctime = statbuf.st_ctim.tv_sec;

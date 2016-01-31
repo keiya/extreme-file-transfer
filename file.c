@@ -26,12 +26,12 @@ FILE* file_open(const char *filename, int iswrite)
 	return fp;
 }
 
-inline void file_compressto(FILE* infp, FILE* outfp, size_t* insz, size_t* outsz)
+void file_compressto(FILE* infp, FILE* outfp, size_t* insz, size_t* outsz)
 {
 	test_compress(outfp, infp, outsz, insz);
 }
 
-inline void file_decompressto(FILE* infp, FILE* outfp, size_t* insz, size_t* outsz)
+void file_decompressto(FILE* infp, FILE* outfp, size_t* insz, size_t* outsz)
 {
 	test_decompress(outfp, infp, outsz, insz);
 }

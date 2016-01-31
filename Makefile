@@ -18,11 +18,27 @@ all: mftpc mftpd
 #liblz4:
 #	@cd $(LZ4DIR); $(MAKE) -e all
 
-mftpc: mftpc.o bsrb.o cwd.o file.o ls.o protocol.o sock.o timeutil.o utility.o $(LZ4DIR)/lz4.o
-	$(CC) $(FLAGS) $^ -lcurl -lreadline -lrt -pthread -o $@
 
+UNAME_S := $(shell uname -s)
+
+ifeq ($(UNAME_S),Linux)
+
+mftpc: mftpc.o bsrb.o cwd.o file.o ls.o protocol.o sock.o timeutil.o utility.o $(LZ4DIR)/lz4.o
+	$(CC) $(FLAGS) $^ -lcurl -lreadline -lrt -o $@
 mftpd: mftpd.o bsrb.o cwd.o file.o ls.o protocol.o sock.o timeutil.o utility.o $(LZ4DIR)/lz4.o
 	$(CC) $(FLAGS) $^ -lcurl -lrt -pthread -o $@
+
+endif
+
+ifeq ($(UNAME_S),Darwin)
+
+mftpc: mftpc.o bsrb.o cwd.o file.o ls.o protocol.o sock.o timeutil.o utility.o $(LZ4DIR)/lz4.o
+	$(CC) $(FLAGS) $^ -lcurl -lreadline -o $@
+mftpd: mftpd.o bsrb.o cwd.o file.o ls.o protocol.o sock.o timeutil.o utility.o $(LZ4DIR)/lz4.o
+	$(CC) $(FLAGS) $^ -lcurl -pthread -o $@
+
+endif
+
 
 
 bsrb.o: blockStreaming_ringBuffer.c
