@@ -43,8 +43,13 @@ int statfile(struct filemeta *file, char *path)
 	file->uid = statbuf.st_uid;
 	file->gid = statbuf.st_gid;
 	file->size = statbuf.st_size;
+#ifdef __APPLE__
+	file->mtime = statbuf.st_mtime.tv_sec;
+	file->ctime = statbuf.st_ctime.tv_sec;
+#elif __linux__
 	file->mtime = statbuf.st_mtim.tv_sec;
 	file->ctime = statbuf.st_ctim.tv_sec;
+#endif
 	file->nblock = statbuf.st_blocks;
 	return 1;
 }
