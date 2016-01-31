@@ -1,6 +1,6 @@
 LZ4DIR = lz4/lib
-#CFLAGS += -Wall -O3
-CFLAGS += -Wall -O3 -g -DDEBUG -fsanitize=address
+CFLAGS += -Wall -O3
+#CFLAGS += -Wall -O3 -g -DDEBUG -fsanitize=address
 FLAGS  := $(CFLAGS) $(LDFLAGS)
 
 FLAGS  := $(CFLAGS) $(LDFLAGS)

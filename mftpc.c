@@ -192,7 +192,6 @@ int mftpc_put(const char *param)
 
 	char *basec = strdup(param);
 	char *dst_filename = basename(basec);
-	printf("bname = %s\n",dst_filename);
 
 	char *header_buf = (char *)malloc(MFTP_HEADER_BUFFERSIZE);
 	struct header_entry *headers = NULL;
@@ -201,8 +200,7 @@ int mftpc_put(const char *param)
 	strncpy(item->value, dst_filename, 512);
 	HASH_ADD_STR(headers, name, item);
 	create_header(header_buf,"qput",headers);
-		free_header(headers);
-	printf("HEADER=[%s]\n",header_buf);
+	free_header(headers);
 
 	/* == clock start == */
 	current_utc_time(&start);
