@@ -2,6 +2,7 @@
  * mftpc.c (XFT / Extreme File Transfer)
  * Keiya Chinen <s1011420@coins.tsukuba.ac.jp>
  */
+#include <ctype.h>
 #include <libgen.h> /* basename */
 #include <netinet/in.h>	/* struct sockaddr_in */
 #include <readline/readline.h>
@@ -9,15 +10,18 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include <unistd.h>
 #include "cwd.h"
 #include "file.h"
 #include "ls.h"
 #include "protocol.h"
 #include "sock.h"
+#include "timeutil.h"
 #include "utility.h"
 
 #define MAX_HISTORY_CNT 10
+#define MEGA 1000000
 
 struct mftpc_conn_handle {
 	FILE *in;
@@ -76,6 +80,17 @@ void show_prompt(char *buf)
 		snprintf(buf,128,"mFTP> ");
 }
 
+void print_stats(struct timespec *start, struct timespec *end, size_t netsz, size_t iosz)
+{
+	long long unsigned int diff = nanodiff(start,end);
+	double sec = diff / 1000000000;
+	double netio = netsz / iosz * 100.0;
+	printf("Transferred %d bytes (Extracted: %d bytes, Net/IO: %.2f %%) in %.3f sec\nNetwork Throughput: %.3f Mbps, IO Throughput: %.3f Mbps\n",
+					(int)netsz,(int)iosz,netio,
+					sec,
+					netsz / MEGA / sec, iosz / MEGA / sec);
+}
+
 #define	BUFFERSIZE 4096
 int mftpc_conn(char *server, int portno)
 {
@@ -99,6 +114,8 @@ int mftpc_get(const char *param)
 	{
 		return -1;
 	}
+	struct timespec start, end;
+
 	char *req_filename = strdup(param);
 	char *header_buf = (char *)malloc(MFTP_HEADER_BUFFERSIZE);
 
@@ -111,16 +128,17 @@ int mftpc_get(const char *param)
 
 	create_header(header_buf,"qget",req_headers);
 	free_header(req_headers);
-	printf("get=>%s\n",header_buf);
-	if( fwrite(header_buf,strlen(header_buf),1,handle.out) < 0 )
+	size_t len = strlen(header_buf);
+	if( fwrite(header_buf,len,1,handle.out) < len)
 	{
 	    fprintf(stderr,"fwrite() failed\n");
 		goto free_1;
 	}
 
-	printf("GETTING!!\n");
+	/* == clock start == */
+	clock_gettime(CLOCK_MONOTONIC, &start);
+
 	int cmd = parse_command(handle.in);
-	printf("cmd!! %d\n",cmd);
 	if (cmd == MFTP_FAIL)
 	{
 		goto free_1;
@@ -143,8 +161,12 @@ int mftpc_get(const char *param)
 		goto free_2;
 	}
 
-	file_decompressto(handle.in,fp);
+	size_t net_recv = 0; size_t io_wrote = 0;
+	file_decompressto(handle.in,fp,&net_recv,&io_wrote); /* receive, extract, write */
 	ret = fclose(fp);
+	clock_gettime(CLOCK_MONOTONIC, &end);
+	/* == clock end == */
+	print_stats(&start,&end,net_recv,io_wrote);
 
 free_2:
 	
@@ -170,6 +192,8 @@ int mftpc_put(const char *param)
 		goto free_1;
 	}
 
+	struct timespec start, end;
+
 	char *basec = strdup(param);
 	char *dst_filename = basename(basec);
 	printf("bname = %s\n",dst_filename);
@@ -184,9 +208,16 @@ int mftpc_put(const char *param)
 		free_header(headers);
 	printf("HEADER=[%s]\n",header_buf);
 
+	/* == clock start == */
+	clock_gettime(CLOCK_MONOTONIC, &start);
 	fwrite(header_buf,strlen(header_buf),1,handle.out);
-	file_compressto(fp,handle.out);
+
+	size_t io_read = 0; size_t net_sent = 0;
+	file_compressto(fp,handle.out,&io_read,&net_sent);
 	ret = fclose(fp);
+	clock_gettime(CLOCK_MONOTONIC, &end);
+	/* == clock end == */
+	print_stats(&start,&end,net_sent,io_read);
 
 	/* receive response from server? */
 
@@ -264,13 +295,13 @@ int mftpc_cd(char *param)
 	int status = 0;
 	if (param == NULL || param[0] == '\0')
 	{
-		return;
+		return -1;
 	}
 	void *crl = pinit();
 	if (crl == NULL)
 	{
 		perror("curl");
-		return;
+		return -1;
 	}
 	char *encoded;
 	encoded = pencode(crl,param);
@@ -347,9 +378,8 @@ char* lexer(char *cmd)
 	do {
 		cur++;
 	}
-	while (cmd[cur] != NULL && cmd[cur] != ' ');
+	while (cmd[cur] != '\0' && cmd[cur] != ' ');
 	cmd[cur] = '\0';
-	printf("%d %d\n",len,cur);
 	if (len <= cur + 1)
 		return NULL;
 

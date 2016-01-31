@@ -51,7 +51,7 @@ void cwd_get_path(struct cwd_ctx *ctx,char *buf)
 	strncpy(buf,ctx->cwd_path,PATH_MAX);
 }
 
-void cwd_realpath(struct cwd_ctx *ctx,char *dirname,char *path)
+void cwd_realpath(struct cwd_ctx *ctx,const char *dirname,char *path)
 {
 	if (strchr(dirname,'/') == dirname) /* absolute path */
 	{

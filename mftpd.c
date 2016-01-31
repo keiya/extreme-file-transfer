@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>	/* strlen() */
+#include <time.h>
 #include <unistd.h>
 #include "file.h"
 #include "ls.h"
@@ -45,6 +46,25 @@ void debug_print(const char *format, ...)
 
 	va_end(args);
 }
+
+void printl(const char *format, ...)
+{
+	va_list args;
+	va_start(args, format);
+
+	time_t rawtime;
+	struct tm * timeinfo;
+
+	time ( &rawtime );
+	timeinfo = localtime ( &rawtime );
+
+	printf ("%s:", asctime (timeinfo) );
+	vprintf(format, args);
+	printf("\n");
+
+	va_end(args);
+}
+
 void
 mftpd_listen( int portno, int ip_version )
 {
@@ -69,18 +89,8 @@ mftpd_listen( int portno, int ip_version )
 #ifdef DEBUG
 	debug_print("accept (%d)",com);
 #endif
-		//arg = malloc( sizeof(struct mftpd_thread_arg) );
 		struct mftpd_thread_arg arg;
-		/*
-		if( arg == NULL )
-		{
-			perror("malloc()");
-			exit( -1 );
-		}
-		*/
-		//arg->com = com;
 		arg.com = com;
-		//if( pthread_create( &worker, NULL, (void *)mftpd_conn_thread, (void *)arg)
 		if( pthread_create( &worker, NULL, (void *)mftpd_conn_thread, &arg)
 				!= 0 )
 		{
@@ -98,7 +108,6 @@ mftpd_listen( int portno, int ip_version )
 void*
 mftpd_conn_thread( struct mftpd_thread_arg *conn_arg )
 {
-	//FILE *in, *out ;
 	if( fdopen_sock(conn_arg->com,&conn_arg->in,&conn_arg->out) < 0 )
 	{
 		fprintf(stderr,"fdopen()\n");
@@ -108,29 +117,18 @@ mftpd_conn_thread( struct mftpd_thread_arg *conn_arg )
 #ifdef DEBUG
 	debug_print("socket has been opened");
 #endif
-	/*
-	struct mftpd_thread_arg *trans_arg;
-	trans_arg = malloc( sizeof(struct mftpd_thread_arg) );
-	if( trans_arg == NULL )
-	{
-		perror("malloc()");
-		exit( -1 );
-	}
-	trans_arg->in = 
-	*/
+
 	conn_arg->cwd = cwd_init();
 	while ( mftpd_do_command(conn_arg) )
 		;
 	fclose( conn_arg->in );
 	fclose( conn_arg->out );
 
-	//free( conn_arg );
 	return( NULL );
 }
 
 void mftpd_get_reply(const char *filename,FILE *out,struct cwd_ctx *cwd)
 {
-	printf("[get]file:%s\n",filename);
 	if (filename == NULL)
 	{
 		return;
@@ -141,9 +139,7 @@ void mftpd_get_reply(const char *filename,FILE *out,struct cwd_ctx *cwd)
 	FILE* fp = file_open(path, 0);
 	if (fp != NULL)
 	{
-		printf("[get]fo:%s\n",path);
 		char *bname = basename(basec);
-		printf("bname = %s\n",bname);
 
 		char *header_buf = (char *)malloc(MFTP_HEADER_BUFFERSIZE);
 		struct header_entry *headers = NULL;
@@ -154,15 +150,17 @@ void mftpd_get_reply(const char *filename,FILE *out,struct cwd_ctx *cwd)
 		create_header(header_buf,"s20",headers);
 		free_header(headers);
 	
-		printf("[GET][s20]%s\n",path);
+		printl("[GET][s20]%s\n",path);
 		fwrite(header_buf,strlen(header_buf),1,out);
 		free(header_buf); /* malloc */
-		file_compressto(fp,out);
+
+		size_t io_read, net_sent = 0;
+		file_compressto(fp,out,&io_read,&net_sent);
 		fclose(fp);
 	}
 	else
 	{
-		printf("[GET][s40]%s\n",path);
+		printl("[GET][s40]%s\n",path);
 		fprintf(out,"s40\r\n");
 	}
 
@@ -177,7 +175,6 @@ void mftpd_put_receive(const char *filename,FILE *in,struct cwd_ctx *cwd)
 	}
 	char path[PATH_MAX];
 	cwd_realpath(cwd,filename,path);
-		printf("put>>%s\n",path);
 	FILE *fp = file_open(path, 1);
 	if (fp == NULL)
 	{
@@ -185,7 +182,10 @@ void mftpd_put_receive(const char *filename,FILE *in,struct cwd_ctx *cwd)
 		return;
 	}
 
-	file_decompressto(in,fp);
+	printl("[PUT]%s\n",path);
+
+	size_t net_recv, io_wrote = 0;
+	file_decompressto(in,fp, &net_recv, &io_wrote);
 
 	/* return response to client? */
 
@@ -194,18 +194,6 @@ void mftpd_put_receive(const char *filename,FILE *in,struct cwd_ctx *cwd)
 
 void mftpd_cd(const char *dirname,FILE *out,struct cwd_ctx* cwd)
 {
-/*	
-	char path[PATH_MAX];
-	realpath(dirname,path);
-	fprintf(out,"s20\r\ndirname:%s\r\n\r\n",path);
-
-	struct lsent lse;
-	ls(dirname,&lse);
-	display(&lse,out,1);
-	free_lse(&lse);
-
-	fprintf(out,"\r\n");
-*/
 	if ( ! cwd_chdir(cwd,dirname,0))
 	{
 		perror("cd");
@@ -219,20 +207,7 @@ void mftpd_dir(const char *dirname,FILE *out, struct cwd_ctx* cwd)
 {
 	char path[PATH_MAX];
 	cwd_realpath(cwd,dirname,path);
-	/*
-	if (strchr(dirname,'/') == dirname)
-	{
-		realpath(dirname,path);
-	}
-	else
-	{
-		char tmp[PATH_MAX];
-		char cwdpath[PATH_MAX];
-		cwd_get_path(cwd,cwdpath);
-		snprintf(tmp,PATH_MAX,"%s/%s",cwdpath,dirname);	
-		realpath(tmp,path);
-	}
-	*/
+
 	fprintf(out,"s20\r\ndirname:%s\r\n\r\n",path);
 
 	struct lsent lse;
@@ -246,7 +221,6 @@ void mftpd_dir(const char *dirname,FILE *out, struct cwd_ctx* cwd)
 int
 mftpd_do_command(struct mftpd_thread_arg *conn_arg)
 {
-	/*pthread_t worker;*/
 	/* parse headers */
 	int cmd;
 
@@ -256,9 +230,7 @@ mftpd_do_command(struct mftpd_thread_arg *conn_arg)
 		return 0;
 	}
 
-	printf("cmd=%d\n",cmd);
 	struct header_entry *headers = parse_headers(conn_arg->in);
-	printf("headerend\n");
 
 	void *crl = pinit();
 	if (crl == NULL) return 0;

@@ -28,7 +28,7 @@ enum {
     MESSAGE_MAX_BYTES   = 1024,
     RING_BUFFER_BYTES   = 1024 * 8 + MESSAGE_MAX_BYTES,
     //DECODE_RING_BUFFER  = RING_BUFFER_BYTES + MESSAGE_MAX_BYTES   // Intentionally larger, to test unsynchronized ring buffers
-    DECODE_RING_BUFFER  = RING_BUFFER_BYTES   // Intentionally larger, to test unsynchronized ring buffers
+    DECODE_RING_BUFFER  = RING_BUFFER_BYTES
 };
 
 
@@ -49,7 +49,7 @@ size_t read_bin(FILE* fp, void* array, int arrayBytes) {
 }
 
 
-void test_compress(FILE* outFp, FILE* inpFp)
+void test_compress(FILE* outFp, FILE* inpFp, size_t* outsz, size_t* insz)
 {
     LZ4_stream_t lz4Stream_body = { 0 };
     LZ4_stream_t* lz4Stream = &lz4Stream_body;
@@ -64,13 +64,14 @@ void test_compress(FILE* outFp, FILE* inpFp)
         //const int inpBytes = (int) read_bin(inpFp, inpPtr, randomLength);
         const int inpBytes = (int) read_bin(inpFp, inpPtr, MESSAGE_MAX_BYTES);
         if (0 == inpBytes) break;
+		*insz += inpBytes;
 
         {
             char cmpBuf[LZ4_COMPRESSBOUND(MESSAGE_MAX_BYTES)];
             const int cmpBytes = LZ4_compress_continue(lz4Stream, inpPtr, cmpBuf, inpBytes);
             if(cmpBytes <= 0) break;
-            write_int32(outFp, cmpBytes);
-            write_bin(outFp, cmpBuf, cmpBytes);
+            *outsz += write_int32(outFp, cmpBytes);
+            *outsz += write_bin(outFp, cmpBuf, cmpBytes);
 
             inpOffset += inpBytes;
 
@@ -79,11 +80,11 @@ void test_compress(FILE* outFp, FILE* inpFp)
         }
     }
 
-    write_int32(outFp, 0);
+    *outsz += write_int32(outFp, 0);
 }
 
 
-void test_decompress(FILE* outFp, FILE* inpFp)
+void test_decompress(FILE* outFp, FILE* inpFp, size_t* outsz, size_t* insz)
 {
     static char decBuf[DECODE_RING_BUFFER];
     int   decOffset    = 0;
@@ -97,9 +98,11 @@ void test_decompress(FILE* outFp, FILE* inpFp)
         {
             const size_t r0 = read_int32(inpFp, &cmpBytes);
             if(r0 != 1 || cmpBytes <= 0) break;
+			*insz += r0;
 
             const size_t r1 = read_bin(inpFp, cmpBuf, cmpBytes);
             if(r1 != (size_t) cmpBytes) break;
+			*insz += r1;
         }
 
         {
@@ -108,7 +111,7 @@ void test_decompress(FILE* outFp, FILE* inpFp)
                 lz4StreamDecode, cmpBuf, decPtr, cmpBytes, MESSAGE_MAX_BYTES);
             if(decBytes <= 0) break;
             decOffset += decBytes;
-            write_bin(outFp, decPtr, decBytes);
+            *outsz += write_bin(outFp, decPtr, decBytes);
 
             // Wraparound the ringbuffer offset
             if(decOffset >= DECODE_RING_BUFFER - MESSAGE_MAX_BYTES) decOffset = 0;

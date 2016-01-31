@@ -1,10 +1,10 @@
 LZ4DIR = lz4/lib
-#CFLAGS += -Wall -O3
-CFLAGS += -Wall -O3 -g -DDEBUG
+CFLAGS += -Wall -O3
+#CFLAGS += -Wall -O3 -g -DDEBUG
 FLAGS  := $(CFLAGS) $(LDFLAGS)
 
 # address sanitizer
-CFLAGS += -fsanitize=address
+#CFLAGS += -fsanitize=address
 FLAGS  := $(CFLAGS) $(LDFLAGS)
 
 #.PHONY: liblz4
@@ -18,15 +18,16 @@ all: mftpc mftpd
 #liblz4:
 #	@cd $(LZ4DIR); $(MAKE) -e all
 
-mftpc: mftpc.o bsrb.o cwd.o file.o ls.o protocol.o sock.o utility.o $(LZ4DIR)/lz4.o
-	$(CC) $(FLAGS) $^ -lcurl -lreadline -pthread -o $@
+mftpc: mftpc.o bsrb.o cwd.o file.o ls.o protocol.o sock.o timeutil.o utility.o $(LZ4DIR)/lz4.o
+	$(CC) $(FLAGS) $^ -lcurl -lreadline -lrt -pthread -o $@
 
-mftpd: mftpd.o bsrb.o cwd.o file.o ls.o protocol.o sock.o utility.o $(LZ4DIR)/lz4.o
-	$(CC) $(FLAGS) $^ -lcurl -pthread -o $@
+mftpd: mftpd.o bsrb.o cwd.o file.o ls.o protocol.o sock.o timeutil.o utility.o $(LZ4DIR)/lz4.o
+	$(CC) $(FLAGS) $^ -lcurl -lrt -pthread -o $@
 
 
 bsrb.o: blockStreaming_ringBuffer.c
 	$(CC) $(FLAGS) -c $^ -o $@
+
 
 cwd.o: cwd.c
 	$(CC) $(FLAGS) -c $^ -o $@
@@ -46,10 +47,13 @@ mftpd.o: mftpd.c
 protocol.o: protocol.c
 	$(CC) $(FLAGS) -c $^ -o $@
 
-rubgc.o: rubgc.c
-	$(CC) $(FLAGS) -c $^ -o $@
+#rubgc.o: rubgc.c
+#	$(CC) $(FLAGS) -c $^ -o $@
 
 sock.o: sock.c
+	$(CC) $(FLAGS) -c $^ -o $@
+
+timeutil.o:  timeutil.c
 	$(CC) $(FLAGS) -c $^ -o $@
 
 utility.o: utility.c

@@ -65,7 +65,9 @@ int ls_dir(char *dir, struct lsent *lse)
         file_count = 0;
 	while ((entry = readdir(dp)) != NULL)
 	{
-		if (entry->d_type == DT_REG | DT_DIR | DT_LNK)
+		if (entry->d_type == DT_REG ||
+			entry->d_type == DT_DIR ||
+			entry->d_type == DT_LNK)
 		{
 			file_count++;
 		}
@@ -92,7 +94,9 @@ int ls_dir(char *dir, struct lsent *lse)
 	i = 0;
 	while((entry = readdir(dp)) != NULL)
 	{
-		if (entry->d_type != DT_REG & DT_DIR & DT_LNK)
+		if ( ! (entry->d_type == DT_REG ||
+			entry->d_type == DT_DIR ||
+			entry->d_type == DT_LNK) )
 		{
 			continue;
 		}
