@@ -26,7 +26,7 @@
 
 enum {
     MESSAGE_MAX_BYTES   = 1024,
-    RING_BUFFER_BYTES   = 1024 * 8 + MESSAGE_MAX_BYTES,
+    RING_BUFFER_BYTES   = 1024 * 256 + MESSAGE_MAX_BYTES,
     //DECODE_RING_BUFFER  = RING_BUFFER_BYTES + MESSAGE_MAX_BYTES   // Intentionally larger, to test unsynchronized ring buffers
     DECODE_RING_BUFFER  = RING_BUFFER_BYTES
 };

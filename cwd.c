@@ -148,6 +148,6 @@ int cwd_chdir(struct cwd_ctx *ctx, const char* chdirpath, int change)
 		}
 	}
 	else {
-		return 0;
+		return 1;
 	}
 }

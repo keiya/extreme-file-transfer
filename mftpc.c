@@ -312,7 +312,6 @@ int mftpc_cd(char *param)
 	struct header_entry *res_headers = parse_headers(handle.in);
 
 	char *listing_dir = get_header_value(res_headers,"dirname");
-	printf("resheaders:%p\n",res_headers);
 	free_header(res_headers); /* parse_headers */
 	printf("[DIR]%s\n",listing_dir);
 	free(listing_dir);

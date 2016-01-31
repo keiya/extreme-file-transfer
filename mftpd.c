@@ -124,11 +124,8 @@ mftpd_conn_thread( struct mftpd_thread_arg *conn_arg )
 	conn_arg->cwd = cwd_init();
 	while ( mftpd_do_command(conn_arg) )
 		;
-	printf("fc1 in %p\n",conn_arg->in);
 	fclose( conn_arg->in );
-	printf("fc2 out %p\n",conn_arg->out);
 	fclose( conn_arg->out );
-	printf("fc3\n");
 	free(conn_arg);
 
 #ifdef DEBUG
