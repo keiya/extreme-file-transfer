@@ -136,7 +136,7 @@ int mftpc_get(const char *param)
 	}
 
 	/* == clock start == */
-	clock_gettime(CLOCK_MONOTONIC, &start);
+	current_utc_time(&start);
 
 	int cmd = parse_command(handle.in);
 	if (cmd == MFTP_FAIL)
@@ -164,7 +164,7 @@ int mftpc_get(const char *param)
 	size_t net_recv = 0; size_t io_wrote = 0;
 	file_decompressto(handle.in,fp,&net_recv,&io_wrote); /* receive, extract, write */
 	ret = fclose(fp);
-	clock_gettime(CLOCK_MONOTONIC, &end);
+	current_utc_time(&end);
 	/* == clock end == */
 	print_stats(&start,&end,net_recv,io_wrote);
 
@@ -209,13 +209,13 @@ int mftpc_put(const char *param)
 	printf("HEADER=[%s]\n",header_buf);
 
 	/* == clock start == */
-	clock_gettime(CLOCK_MONOTONIC, &start);
+	current_utc_time(&start);
 	fwrite(header_buf,strlen(header_buf),1,handle.out);
 
 	size_t io_read = 0; size_t net_sent = 0;
 	file_compressto(fp,handle.out,&io_read,&net_sent);
 	ret = fclose(fp);
-	clock_gettime(CLOCK_MONOTONIC, &end);
+	current_utc_time(&end);
 	/* == clock end == */
 	print_stats(&start,&end,net_sent,io_read);
 
