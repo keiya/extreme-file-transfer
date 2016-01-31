@@ -85,7 +85,7 @@ void print_stats(struct timespec *start, struct timespec *end, size_t netsz, siz
 	long long unsigned int diff = nanodiff(start,end);
 	double sec = (double)diff / 1000000000.0;
 	double netio = (double)netsz / (double)iosz * 100.0;
-	printf("Transferred %d bytes (Extracted: %d bytes, Net/IO: %.2f %%) in %.3f sec\nNetwork Throughput: %.3f Mbps, IO Throughput: %.3f Mbps\n",
+	printf("Transferred %d bytes (Extracted: %d bytes, Net/IO: %.2f %%) in %.3f sec\nNetwork Throughput: %.3f MB/s, IO Throughput: %.3f MB/s\n",
 					(int)netsz,(int)iosz,netio,
 					sec,
 					netsz / MEGA / sec, iosz / MEGA / sec);
