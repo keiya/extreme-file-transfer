@@ -1,7 +1,7 @@
-mFTP - minimized-data File Transfer Protocol
+**XFT**
 
-Protocol
-========
+mFTP Protocol
+=============
 A mFTP (Protocol) is like a HTTP (Protocol).
 All control traffic are transmitted by plain text except data payload (body).
 Filename or pathname should be encoded by percent-encoding (URL encoding).
@@ -81,6 +81,8 @@ Response header should begin with `s`.
 ### Request `qget`
 * Header
     * filename (Required)
+* Payload
+    * LZ4 Compressed Data
 
 ## PUT
 ### Request `qput`

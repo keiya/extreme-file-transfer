@@ -21,7 +21,9 @@
 #include "utility.h"
 
 #define MAX_HISTORY_CNT 10
-#define MEGA 1000000
+#define MEGA 1000000.0L
+#define BILLION 1000000000.0L
+#define MEGA_D_BILLION (MEGA / BILLION) /* nanosec/bytes to sec/MB */
 
 struct mftpc_conn_handle {
 	FILE *in;
@@ -83,12 +85,12 @@ void show_prompt(char *buf)
 void print_stats(struct timespec *start, struct timespec *end, size_t netsz, size_t iosz)
 {
 	long long unsigned int diff = nanodiff(start,end);
-	double sec = (double)diff / 1000000000.0;
+	double sec = (double)diff / BILLION;
 	double netio = (double)netsz / (double)iosz * 100.0;
 	printf("Transferred %d bytes (Extracted: %d bytes, Net/IO: %.2f %%) in %.3f sec\nNetwork Throughput: %.3f MB/s, IO Throughput: %.3f MB/s\n",
 					(int)netsz,(int)iosz,netio,
 					sec,
-					netsz / MEGA / sec, iosz / MEGA / sec);
+					(double)netsz / (double)diff / MEGA_D_BILLION, (double)iosz / (double)diff / MEGA_D_BILLION);
 }
 
 #define	BUFFERSIZE 4096
@@ -107,6 +109,7 @@ int mftpc_conn(char *server, int portno)
 	connected = 1;
 	return 1;
 }
+
 int mftpc_get(const char *param)
 {
 	int ret = -1;
@@ -114,7 +117,6 @@ int mftpc_get(const char *param)
 	{
 		return -1;
 	}
-	struct timespec start, end;
 
 	char *req_filename = strdup(param);
 	char *header_buf = (char *)malloc(MFTP_HEADER_BUFFERSIZE);
@@ -129,10 +131,6 @@ int mftpc_get(const char *param)
 	create_header(header_buf,"qget",req_headers);
 	free_header(req_headers);
 	fwrite(header_buf,strlen(header_buf),1,handle.out);
-
-
-	/* == clock start == */
-	current_utc_time(&start);
 
 	int cmd = parse_command(handle.in);
 	if (cmd == MFTP_FAIL)
@@ -158,10 +156,15 @@ int mftpc_get(const char *param)
 	}
 
 	size_t net_recv = 0; size_t io_wrote = 0;
+
+	struct timespec start, end;
+	/* == clock start == */
+	current_utc_time(&start);
 	file_decompressto(handle.in,fp,&net_recv,&io_wrote); /* receive, extract, write */
-	ret = fclose(fp);
 	current_utc_time(&end);
 	/* == clock end == */
+
+	ret = fclose(fp);
 	print_stats(&start,&end,net_recv,io_wrote);
 
 free_2:
@@ -188,8 +191,6 @@ int mftpc_put(const char *param)
 		goto free_1;
 	}
 
-	struct timespec start, end;
-
 	char *basec = strdup(param);
 	char *dst_filename = basename(basec);
 
@@ -202,18 +203,21 @@ int mftpc_put(const char *param)
 	create_header(header_buf,"qput",headers);
 	free_header(headers);
 
-	/* == clock start == */
-	current_utc_time(&start);
 	fwrite(header_buf,strlen(header_buf),1,handle.out);
 
 	size_t io_read = 0; size_t net_sent = 0;
+
+	struct timespec start, end;
+	/* == clock start == */
+	current_utc_time(&start);
 	file_compressto(fp,handle.out,&io_read,&net_sent);
-	ret = fclose(fp);
 	current_utc_time(&end);
 	/* == clock end == */
+
+	ret = fclose(fp);
 	print_stats(&start,&end,net_sent,io_read);
 
-	/* receive response from server? */
+	/* TODO:receive response from server? */
 
 	free(header_buf); /* malloc */
 
@@ -389,7 +393,6 @@ int check_connected()
 
 int main( int argc, char *argv[] )
 {
-	set_sighandler();
 	if (argc == 3)
 	{
 		int port = atoi(argv[2]);
@@ -399,6 +402,7 @@ int main( int argc, char *argv[] )
 	{
 		mftpc_conn(argv[1],10000);
 	}
+	set_sighandler();
 	char prompt[128] = "mFTP> ";
 	int history_no = 0;
 	HIST_ENTRY *history = NULL;
