@@ -24,7 +24,7 @@ fdopen_sock( int sock, FILE **inp, FILE **outp )
 	    *inp = 0 ;
 	    return( -1 );
 	}
-	setvbuf(*outp, (char *)NULL, _IONBF, 0);
+//	setvbuf(*outp, (char *)NULL, _IONBF, 0);
 	return( 0 );
 }
 

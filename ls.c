@@ -229,11 +229,11 @@ void display(struct lsent *lse, FILE* out, int encode)
 			{
 				encoded = pencode(crl,bname);
 
-				fprintf(out,"\t%d\t%d\t%d\t%lld\t%s\t%s",
+				fprintf(out,"\t%d\t%d\t%d\t%lu\t%s\t%s",
 					(int)lse->files_p[i]->nlink,
 					lse->files_p[i]->uid,
 					lse->files_p[i]->gid,
-					(long long int)lse->files_p[i]->size,
+					(unsigned long)lse->files_p[i]->size,
 					outstr,
 					/*lse->files_p[i]->filename*/
 					encoded
@@ -243,11 +243,11 @@ void display(struct lsent *lse, FILE* out, int encode)
 			}
 			else
 			{
-				fprintf(out,"\t%d\t%d\t%d\t%lld\t%s\t%s",
+				fprintf(out,"\t%d\t%d\t%d\t%lu\t%s\t%s",
 					(int)lse->files_p[i]->nlink,
 					lse->files_p[i]->uid,
 					lse->files_p[i]->gid,
-					(long long int)lse->files_p[i]->size,
+					(unsigned long)lse->files_p[i]->size,
 					outstr,
 					/*lse->files_p[i]->filename*/
 					bname

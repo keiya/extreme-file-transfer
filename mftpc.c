@@ -21,9 +21,8 @@
 #include "utility.h"
 
 #define MAX_HISTORY_CNT 10
-#define MEGA 1000000.0L
-#define BILLION 1000000000.0L
-#define MEGA_D_BILLION (MEGA / BILLION) /* nanosec/bytes to sec/MB */
+#define MEGA 1000000.0
+#define BILLION 1000000000.0
 
 struct mftpc_conn_handle {
 	FILE *in;
@@ -87,10 +86,10 @@ void print_stats(struct timespec *start, struct timespec *end, size_t netsz, siz
 	long long unsigned int diff = nanodiff(start,end);
 	double sec = (double)diff / BILLION;
 	double netio = (double)netsz / (double)iosz * 100.0;
-	printf("Transferred %d bytes (Extracted: %d bytes, Net/IO: %.2f %%) in %.3f sec\nNetwork Throughput: %.3f MB/s, IO Throughput: %.3f MB/s\n",
-					(int)netsz,(int)iosz,netio,
+	printf("Transferred %lu bytes (Extracted: %lu bytes, Net/IO: %.2f %%) in %.3f sec\nNetwork Throughput: %.3f MB/s, IO Throughput: %.3f MB/s\n",
+					(unsigned long)netsz,(unsigned long)iosz,netio,
 					sec,
-					(double)netsz / (double)diff / MEGA_D_BILLION, (double)iosz / (double)diff / MEGA_D_BILLION);
+					(double)netsz / sec / MEGA, (double)iosz / sec / MEGA);
 }
 
 #define	BUFFERSIZE 4096
@@ -131,6 +130,7 @@ int mftpc_get(const char *param)
 	create_header(header_buf,"qget",req_headers);
 	free_header(req_headers);
 	fwrite(header_buf,strlen(header_buf),1,handle.out);
+	fflush(handle.out);
 
 	int cmd = parse_command(handle.in);
 	if (cmd == MFTP_FAIL)
@@ -204,6 +204,7 @@ int mftpc_put(const char *param)
 	free_header(headers);
 
 	fwrite(header_buf,strlen(header_buf),1,handle.out);
+	fflush(handle.out);
 
 	size_t io_read = 0; size_t net_sent = 0;
 
@@ -211,6 +212,7 @@ int mftpc_put(const char *param)
 	/* == clock start == */
 	current_utc_time(&start);
 	file_compressto(fp,handle.out,&io_read,&net_sent);
+	fflush(handle.out);
 	current_utc_time(&end);
 	/* == clock end == */
 
@@ -249,6 +251,7 @@ void mftpc_dir(char *param)
 	}
 
 	fprintf(handle.out,"qdir\r\ndirname:%s\r\n\r\n",target);
+	fflush(handle.out);
 
 	int cmd = parse_command(handle.in);
 	if (cmd == MFTP_FAIL)
@@ -304,6 +307,7 @@ int mftpc_cd(char *param)
 	char *encoded;
 	encoded = pencode(crl,param);
 	fprintf(handle.out,"qcd\r\ndirname:%s\r\n\r\n",encoded);
+	fflush(handle.out);
 	pfree(encoded);
 
 	int cmd = parse_command(handle.in);

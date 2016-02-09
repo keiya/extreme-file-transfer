@@ -160,16 +160,19 @@ void mftpd_get_reply(const char *filename,FILE *out,struct cwd_ctx *cwd)
 	
 		printl("[GET][s20]%s\n",path);
 		fwrite(header_buf,strlen(header_buf),1,out);
+		fflush(out);
 		free(header_buf); /* malloc */
 
 		size_t io_read, net_sent = 0;
 		file_compressto(fp,out,&io_read,&net_sent);
+		fflush(out);
 		fclose(fp);
 	}
 	else
 	{
 		printl("[GET][s40]%s\n",path);
 		fprintf(out,"s40\r\n");
+		fflush(out);
 	}
 
 	free(basec); /* strdup */
@@ -209,6 +212,7 @@ void mftpd_cd(const char *dirname,FILE *out,struct cwd_ctx* cwd)
 	char buf[PATH_MAX];
 	cwd_get_path(cwd,buf);
 	fprintf(out,"s20\r\ndirname:%s\r\n\r\n",buf);
+	fflush(out);
 }
 
 void mftpd_dir(const char *dirname,FILE *out, struct cwd_ctx* cwd)
@@ -217,6 +221,7 @@ void mftpd_dir(const char *dirname,FILE *out, struct cwd_ctx* cwd)
 	cwd_realpath(cwd,dirname,path);
 
 	fprintf(out,"s20\r\ndirname:%s\r\n\r\n",path);
+	fflush(out);
 
 	struct lsent lse;
 	ls(path,&lse);
@@ -224,6 +229,7 @@ void mftpd_dir(const char *dirname,FILE *out, struct cwd_ctx* cwd)
 	free_lse(&lse);
 
 	fprintf(out,"\r\n");
+	fflush(out);
 }
 
 int
@@ -277,6 +283,7 @@ mftpd_do_command(struct mftpd_thread_arg *conn_arg)
 	else
 	{
 		fprintf(conn_arg->out,"s40\r\n\r\n");
+		fflush(conn_arg->out);
 	}
 	pclean(crl);
 	return 1;
